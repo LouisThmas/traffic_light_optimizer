@@ -135,15 +135,15 @@ def _expected_perpendicular(
 ) -> bool:
     """Geometric expectation for two lanes from perpendicular approaches.
 
-    The honest geometric rule is exit-based: two lanes conflict when they
-    exit onto the same road (merge) or when both go straight through
-    (paths cross at the center). Which movement pairs share an exit
-    depends on the direction pair, not just the movements:
+    Conflicts, verified against explicit 2D path geometry:
 
-      north vs east: left+forward share west, forward+right share south
-      north vs west: forward+left share south, right+forward share east
-
-    so the expectation is computed from the actual exit directions.
+    - forward + forward: paths cross at the center -> illegal
+    - left + left: both sweep the center, paths cross -> illegal
+    - left + forward where the forward approach's road IS the left's
+      exit road: the sweep crosses that road's through lanes -> illegal
+      (e.g. N-L exits east and crosses E-F1 westbound)
+    - everything else (including left + right with different exits):
+      paths do not cross -> allowed
     """
     first_exit = EXIT_DIRECTIONS[(first_direction, first_movement)]
     second_exit = EXIT_DIRECTIONS[(second_direction, second_movement)]
@@ -151,6 +151,14 @@ def _expected_perpendicular(
         return False  # merge into the same exit road
     if first_movement == "forward" and second_movement == "forward":
         return False  # paths cross at the center
+    if first_movement == "left" and second_movement == "left":
+        return False  # both sweep the center
+    if first_movement == "left" and second_movement == "forward":
+        if second_direction == first_exit:
+            return False  # sweep crosses the exit road's through lanes
+    if second_movement == "left" and first_movement == "forward":
+        if first_direction == second_exit:
+            return False
     return True
 
 

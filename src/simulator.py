@@ -29,7 +29,7 @@ for _path in (_HERE, os.path.join(_ROOT, "scripts")):
 from arrivals import TurnSplit, draw_arrivals, lane_arrival_rates
 from generate_config import LANES
 from lights import validate_lights
-from queue import LaneQueue
+from lane_queue import LaneQueue
 
 GREEN = "green"
 YELLOW = "yellow"
@@ -115,7 +115,17 @@ class Simulation:
             elif lane.signal == YELLOW:
                 lane.yellow_elapsed += dt
                 if lane.yellow_elapsed >= self.config.yellow_duration:
-                    lane.signal = RED
+                    # a request during yellow re-activates the lane as soon
+                    # as the clearance ends instead of dropping the click
+                    if requested:
+                        lane.signal = GREEN
+                        lane.green_elapsed = 0.0
+                        lane.served_credit = 0.0
+                        lane.green_time += dt
+                        if len(lane.queue) == 0:
+                            lane.green_empty_time += dt
+                    else:
+                        lane.signal = RED
             else:  # RED
                 if requested:
                     lane.signal = GREEN

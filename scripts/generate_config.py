@@ -17,12 +17,14 @@ DIRECTION_CODES = {"north": "N", "south": "S", "east": "E", "west": "W"}
 MOVEMENT_CODES = {"left": "L", "forward": "F", "right": "R"}
 
 # Where a vehicle ends up for each (approach direction, movement) pair.
-# A vehicle entering from the north exits south (forward), west (left), east (right).
+# An approach is named by where the vehicle COMES FROM: a car on the north
+# approach is heading south. In the driver's frame, heading south:
+# forward = south, left = east, right = west.
 EXIT_DIRECTIONS = {
-    ("north", "left"): "west", ("north", "forward"): "south", ("north", "right"): "east",
-    ("south", "left"): "east", ("south", "forward"): "north", ("south", "right"): "west",
-    ("east", "left"): "north", ("east", "forward"): "west", ("east", "right"): "south",
-    ("west", "left"): "south", ("west", "forward"): "east", ("west", "right"): "north",
+    ("north", "left"): "east", ("north", "forward"): "south", ("north", "right"): "west",
+    ("south", "left"): "west", ("south", "forward"): "north", ("south", "right"): "east",
+    ("east", "left"): "south", ("east", "forward"): "west", ("east", "right"): "north",
+    ("west", "left"): "north", ("west", "forward"): "east", ("west", "right"): "south",
 }
 
 
@@ -69,17 +71,24 @@ LANES = _build_lanes()
 #   True  = movements may run simultaneously (no crossing conflict)
 #   False = potential collision; must not be green at the same time
 #
-# Conflict rules (applied symmetrically):
-#   - Same exit from different approaches -> merge conflict (streams converge
-#     into the same exit road). Lanes from the SAME approach are parallel and
-#     stay compatible (e.g. N-F1 vs N-F2).
+# Conflict rules (applied symmetrically), verified against explicit 2D
+# path geometry for all 120 cross-approach lane pairs:
+#   - Same exit road from different approaches -> merge conflict (streams
+#     converge). Lanes from the SAME approach are parallel and compatible.
 #   - Left turn vs opposing through -> the left crosses oncoming traffic
 #     (e.g. N-L vs S-F1).
+#   - Left turn vs perpendicular through traffic ON ITS EXIT ROAD -> the
+#     left's sweep crosses that road's through lanes (e.g. N-L exits east
+#     and crosses E-F1 westbound on the east road).
+#   - Perpendicular left turns -> both sweep the center, paths cross
+#     (e.g. N-L vs W-L).
 #   - Perpendicular through movements -> paths cross at the center
 #     (e.g. N-F1 vs E-F1).
 #   - Opposing left turns are ALLOWED: the intersection is assumed large
 #     enough for the two lefts to turn side by side without crossing.
-#   - Everything else is compatible (e.g. N-F vs S-F, N-F vs S-R, N-L vs E-L).
+#   - Left turn vs perpendicular RIGHT turn is allowed when exits differ:
+#     the right turn hugs the corner and clears before the sweep arrives.
+#   - Everything else is compatible (e.g. N-F vs S-F).
 OPPOSITE_DIRECTIONS = {"north": "south", "south": "north", "east": "west", "west": "east"}
 PERPENDICULAR_DIRECTIONS = {
     "north": {"east", "west"},
@@ -97,12 +106,21 @@ def _conflicts(first_lane: Lane, second_lane: Lane) -> bool:
     if first_lane.direction == OPPOSITE_DIRECTIONS[second_lane.direction]:
         if {first_lane.movement, second_lane.movement} == {"left", "forward"}:
             return True  # left turn crosses opposing through traffic
-    if (
-        first_lane.movement == "forward"
-        and second_lane.movement == "forward"
-        and second_lane.direction in PERPENDICULAR_DIRECTIONS[first_lane.direction]
-    ):
-        return True  # perpendicular through movements cross
+        return False  # opposing lefts allowed; other opposing pairs fine
+    # Perpendicular approaches:
+    if first_lane.movement == "forward" and second_lane.movement == "forward":
+        return True  # through movements cross at the center
+    if first_lane.movement == "left" and second_lane.movement == "left":
+        return True  # both sweep the center, paths cross
+    # A left turn's sweep crosses the through lanes of the road it turns
+    # into: conflict with the perpendicular approach's forward traffic.
+    for turning, other in ((first_lane, second_lane), (second_lane, first_lane)):
+        if (
+            turning.movement == "left"
+            and other.movement == "forward"
+            and other.direction == turning.exit_direction
+        ):
+            return True
     return False
 
 

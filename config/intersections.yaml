@@ -19,22 +19,22 @@ lanes:
 - W-F2
 - W-R
 movements:
-  N-L: west
+  N-L: east
   N-F1: south
   N-F2: south
-  N-R: east
-  S-L: east
+  N-R: west
+  S-L: west
   S-F1: north
   S-F2: north
-  S-R: west
-  E-L: north
+  S-R: east
+  E-L: south
   E-F1: west
   E-F2: west
-  E-R: south
-  W-L: south
+  E-R: north
+  W-L: north
   W-F1: east
   W-F2: east
-  W-R: north
+  W-R: south
 compatibility:
 - - true
   - true
@@ -44,26 +44,10 @@ compatibility:
   - false
   - false
   - false
-  - true
-  - false
-  - false
-  - true
-  - true
-  - true
-  - true
-  - true
-- - true
-  - true
-  - true
-  - true
-  - false
-  - true
-  - true
-  - true
-  - true
   - false
   - false
   - false
+  - true
   - false
   - false
   - false
@@ -76,14 +60,30 @@ compatibility:
   - true
   - true
   - true
+  - false
+  - false
+  - false
+  - true
+  - false
+  - false
+  - false
+  - false
+- - true
+  - true
+  - true
+  - true
+  - false
+  - true
+  - true
+  - true
+  - false
+  - false
+  - false
   - true
   - false
   - false
   - false
   - false
-  - false
-  - false
-  - true
 - - true
   - true
   - true
@@ -93,12 +93,12 @@ compatibility:
   - true
   - true
   - true
-  - true
-  - true
-  - true
-  - true
   - false
   - false
+  - true
+  - true
+  - true
+  - true
   - true
 - - true
   - false
@@ -108,11 +108,11 @@ compatibility:
   - true
   - true
   - true
+  - false
+  - false
+  - false
   - true
-  - true
-  - true
-  - true
-  - true
+  - false
   - false
   - false
   - true
@@ -127,11 +127,11 @@ compatibility:
   - false
   - false
   - false
+  - false
+  - false
+  - false
+  - false
   - true
-  - true
-  - false
-  - false
-  - false
 - - false
   - true
   - true
@@ -143,11 +143,11 @@ compatibility:
   - false
   - false
   - false
+  - false
+  - false
+  - false
+  - false
   - true
-  - true
-  - false
-  - false
-  - false
 - - false
   - true
   - true
@@ -157,18 +157,18 @@ compatibility:
   - true
   - true
   - true
+  - true
+  - true
+  - true
+  - true
   - false
   - false
   - true
+- - false
+  - false
+  - false
   - true
-  - true
-  - true
-  - true
-- - true
-  - true
-  - true
-  - true
-  - true
+  - false
   - false
   - false
   - true
@@ -183,11 +183,43 @@ compatibility:
 - - false
   - false
   - false
+  - false
+  - false
+  - false
+  - false
+  - true
+  - true
+  - true
+  - true
+  - true
+  - false
+  - true
+  - true
+  - true
+- - false
+  - false
+  - false
+  - false
+  - false
+  - false
+  - false
+  - true
+  - true
+  - true
+  - true
+  - true
+  - false
+  - true
+  - true
+  - true
+- - true
+  - true
+  - true
   - true
   - true
   - false
   - false
-  - false
+  - true
   - true
   - true
   - true
@@ -200,41 +232,9 @@ compatibility:
   - false
   - false
   - true
-  - true
   - false
   - false
   - false
-  - true
-  - true
-  - true
-  - true
-  - false
-  - true
-  - true
-  - true
-- - true
-  - false
-  - false
-  - true
-  - true
-  - true
-  - true
-  - true
-  - true
-  - true
-  - true
-  - true
-  - false
-  - true
-  - true
-  - true
-- - true
-  - false
-  - false
-  - true
-  - true
-  - true
-  - true
   - true
   - true
   - false
@@ -244,14 +244,30 @@ compatibility:
   - true
   - true
   - true
-- - true
+- - false
   - false
+  - false
+  - true
   - false
   - false
   - false
   - false
   - false
   - true
+  - true
+  - true
+  - true
+  - true
+  - true
+  - true
+- - false
+  - false
+  - false
+  - true
+  - false
+  - false
+  - false
+  - false
   - false
   - true
   - true
@@ -263,26 +279,10 @@ compatibility:
 - - true
   - false
   - false
-  - false
-  - false
-  - false
-  - false
-  - true
-  - false
   - true
   - true
   - true
   - true
-  - true
-  - true
-  - true
-- - true
-  - true
-  - true
-  - true
-  - true
-  - false
-  - false
   - true
   - false
   - true
