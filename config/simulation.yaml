@@ -1,0 +1,11 @@
+simulation:
+  step_length: 1.0        # seconds per step
+  discharge_rate: 0.5     # cars per second per green lane
+  arrival_rate: 0.2       # cars per second per lane (base)
+  turn_split:
+    left: 0.2
+    forward: 0.6
+    right: 0.2
+  min_green: 5.0          # seconds a lane stays green once switched on
+  yellow_duration: 2.0    # seconds of yellow after green ends
+  seed: 0
