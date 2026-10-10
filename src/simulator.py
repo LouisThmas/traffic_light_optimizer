@@ -102,6 +102,10 @@ class Simulation:
 
     def _advance_signals(self, lights: Dict[str, bool]) -> None:
         dt = self.config.step_length
+
+        # First progress active signals. Red lanes are considered only after
+        # all existing greens/yellows have progressed, so a new green is
+        # always checked against the effective—not merely requested—state.
         for lane_name, lane in self.lanes.items():
             requested = lights.get(lane_name, False)
             if lane.signal == GREEN:
@@ -115,25 +119,39 @@ class Simulation:
             elif lane.signal == YELLOW:
                 lane.yellow_elapsed += dt
                 if lane.yellow_elapsed >= self.config.yellow_duration:
-                    # a request during yellow re-activates the lane as soon
-                    # as the clearance ends instead of dropping the click
-                    if requested:
-                        lane.signal = GREEN
-                        lane.green_elapsed = 0.0
-                        lane.served_credit = 0.0
-                        lane.green_time += dt
-                        if len(lane.queue) == 0:
-                            lane.green_empty_time += dt
-                    else:
-                        lane.signal = RED
-            else:  # RED
-                if requested:
-                    lane.signal = GREEN
-                    lane.green_elapsed = 0.0
-                    lane.served_credit = 0.0
-                    lane.green_time += dt
-                    if len(lane.queue) == 0:
-                        lane.green_empty_time += dt
+                    # A retained request is considered in the red-lane pass
+                    # below. This prevents it from bypassing a forced green.
+                    lane.signal = RED
+
+        green_names = {
+            name for name, lane in self.lanes.items() if lane.signal == GREEN
+        }
+        for lane_name, lane in self.lanes.items():
+            if lane.signal != RED or not lights.get(lane_name, False):
+                continue
+            if not self._is_compatible_with_greens(lane_name, green_names):
+                continue
+            lane.signal = GREEN
+            lane.green_elapsed = 0.0
+            lane.served_credit = 0.0
+            lane.green_time += dt
+            if len(lane.queue) == 0:
+                lane.green_empty_time += dt
+            green_names.add(lane_name)
+
+        # This is a defensive assertion for state-machine maintenance.
+        validate_lights({name: name in green_names for name in self.lanes})
+
+    @staticmethod
+    def _is_compatible_with_greens(lane_name: str, green_names: set[str]) -> bool:
+        """Whether `lane_name` can join the current effective green set."""
+        from lights import LANE_INDEX
+        from generate_config import MATRIX
+
+        return all(
+            MATRIX[LANE_INDEX[lane_name]][LANE_INDEX[other]]
+            for other in green_names
+        )
 
     def is_green(self, lane_name: str) -> bool:
         return self.lanes[lane_name].signal == GREEN
@@ -209,6 +227,12 @@ class Simulation:
             },
             "green_empty_time": {
                 name: lane.green_empty_time for name, lane in self.lanes.items()
+            },
+            "departed": {
+                name: lane.cars_departed for name, lane in self.lanes.items()
+            },
+            "total_car_wait": {
+                name: lane.total_car_wait for name, lane in self.lanes.items()
             },
             "signals": {name: lane.signal for name, lane in self.lanes.items()},
             "lights": {

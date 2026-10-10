@@ -1,3 +1,4 @@
 pyyaml
 pytest
 numpy
+pygame-ce>=2.5.3

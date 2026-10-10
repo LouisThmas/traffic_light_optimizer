@@ -180,8 +180,36 @@ def test_throughput_counts_all_movements():
         sim.step(lights)
     state = sim.state()
     assert state["total_throughput"] == 4
-    assert state["throughput"]["west"] == 2   # N-L exits west
-    assert state["throughput"]["east"] == 2   # N-R exits east
+    assert state["throughput"]["east"] == 2   # N-L exits east
+    assert state["throughput"]["west"] == 2   # N-R exits west
+
+
+def test_forced_green_blocks_conflicting_new_green():
+    sim = make_sim(seed=9, arrival_rate=0.0)
+    north = all_lights()
+    north["N-F1"] = True
+    sim.step(north)
+
+    east = all_lights()
+    east["E-F1"] = True  # conflicts with N-F1 but is safe by itself
+    sim.step(east)
+
+    state = sim.state()
+    assert state["signals"]["N-F1"] == GREEN
+    assert state["signals"]["E-F1"] == RED
+    assert "N-F1" in state["forced_green"]
+
+
+def test_state_exposes_lane_departure_totals():
+    sim = make_sim(seed=10, arrival_rate=0.0)
+    sim.lanes["N-F1"].queue.add(0.0, 1)
+    lights = all_lights()
+    lights["N-F1"] = True
+    for _ in range(2):
+        sim.step(lights)
+    state = sim.state()
+    assert state["departed"]["N-F1"] == 1
+    assert state["total_car_wait"]["N-F1"] == 2.0
 
 
 def test_green_empty_tracking():

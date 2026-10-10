@@ -4,17 +4,29 @@ A controller receives the simulation state and returns a light vector
 (lane name -> bool). The simulator validates safety, so a controller can
 never create a conflicting green.
 """
+from dataclasses import dataclass
 from typing import Dict
 
 from generate_config import LANES
 
 # Approaches and their lane groups, used by phase-based controllers.
+NS_LEFT = ["N-L", "S-L"]
 NS_THROUGH = ["N-F1", "N-F2", "S-F1", "S-F2", "N-R", "S-R"]
+EW_LEFT = ["E-L", "W-L"]
 EW_THROUGH = ["E-F1", "E-F2", "W-F1", "W-F2", "E-R", "W-R"]
+ALTERNATING_PHASES = (NS_LEFT, NS_THROUGH, EW_LEFT, EW_THROUGH)
 
 
 def all_red() -> Dict[str, bool]:
     return {lane.name: False for lane in LANES}
+
+
+@dataclass(frozen=True)
+class ToggleResult:
+    """Result of a requested manual signal change."""
+
+    changed: bool
+    reason: str = ""
 
 
 class ManualController:
@@ -29,23 +41,41 @@ class ManualController:
     def __init__(self) -> None:
         self.desired: Dict[str, bool] = all_red()
 
-    def _is_allowed(self, lane_name: str) -> bool:
+    def _is_allowed(self, lane_name: str, state: Dict | None = None) -> bool:
         """True if turning this lane green conflicts with nothing already green."""
         from lights import LANE_INDEX
         from generate_config import MATRIX
 
+        actual_green = set()
+        if state is not None:
+            actual_green = {
+                other for other, signal in state.get("signals", {}).items()
+                if signal == "green"
+            }
+
         return all(
-            not self.desired[other]
+            (not self.desired[other] and other not in actual_green)
             or MATRIX[LANE_INDEX[lane_name]][LANE_INDEX[other]]
             for other in self.desired
         )
 
-    def toggle(self, lane_name: str) -> None:
+    def can_turn_on(self, lane_name: str, state: Dict | None = None) -> bool:
+        """Whether a red lane may safely be requested on right now."""
+        return not self.desired[lane_name] and self._is_allowed(lane_name, state)
+
+    def toggle(self, lane_name: str, state: Dict | None = None) -> ToggleResult:
+        """Request a toggle, returning why a blocked request was rejected."""
+        if lane_name not in self.desired:
+            return ToggleResult(False, "unknown lane")
+        if state is not None and lane_name in state.get("forced_green", []):
+            return ToggleResult(False, "minimum green is still active")
         if self.desired[lane_name]:
             self.desired[lane_name] = False  # switching off is always safe
-        elif self._is_allowed(lane_name):
+            return ToggleResult(True)
+        if self._is_allowed(lane_name, state):
             self.desired[lane_name] = True
-        # else: conflicting click ignored
+            return ToggleResult(True)
+        return ToggleResult(False, "conflicts with an active requested signal")
 
     def set(self, lights: Dict[str, bool]) -> None:
         self.desired = dict(lights)
@@ -55,7 +85,11 @@ class ManualController:
 
 
 class AlternatingController:
-    """Fixed cycle: north-south for `phase_length` steps, then east-west."""
+    """Fixed four-phase cycle that serves every one of the 16 lanes.
+
+    Protected opposing left turns are followed by the corresponding
+    through/right phase, first north-south and then east-west.
+    """
 
     def __init__(self, phase_length: int = 15) -> None:
         self.phase_length = phase_length
@@ -63,7 +97,8 @@ class AlternatingController:
 
     def act(self, state: Dict) -> Dict[str, bool]:
         lights = all_red()
-        phase = NS_THROUGH if (self.step_count // self.phase_length) % 2 == 0 else EW_THROUGH
+        phase_index = (self.step_count // self.phase_length) % len(ALTERNATING_PHASES)
+        phase = ALTERNATING_PHASES[phase_index]
         for lane_name in phase:
             lights[lane_name] = True
         self.step_count += 1
