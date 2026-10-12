@@ -40,11 +40,17 @@ python src/pygame_ui.py
 # launch two lock-step simulations for controller comparison
 python src/pygame_ui.py --compare
 
-# run only the exhaustive baseline-controller tests
-python -m pytest tests/test_controllers.py -v
+# evaluate one controller on one scenario (all its configured seeds)
+python -m src.evaluate --controller fixed_cycle --scenario balanced
 
-# inspect the saved matrix-optimized four-phase cycle
-python -m pytest tests/test_controllers.py -v
+# compare several controllers under identical conditions
+python -m src.evaluate --controllers fixed_cycle,actuated,max_pressure --scenario construction_north
+
+# evaluate every baseline controller, with custom score weights
+python -m src.evaluate --controllers all --scenario balanced --weights avg_car_wait=2.0
+
+# write raw results to a specific JSONL file
+python -m src.evaluate --controllers all --scenario near_capacity --output results/near_capacity.jsonl
 ```
 
 ## Pygame simulator
@@ -69,12 +75,21 @@ lock-step from identical arrival seeds, allowing fair controller comparison.
 ## Project layout
 
 ```
-config/     intersection + simulation settings (YAML)
+config/     intersection, simulation, and scenario settings (YAML)
 scripts/    config generator
-src/        simulator code
+src/        simulator, controllers, and evaluation harness
 tests/      pytest tests
 docs/       plans and notes
+results/    generated evaluation output (gitignored)
 ```
+
+## Evaluation harness
+
+Compare controllers fairly: every controller in a run receives the same
+scenario and seed, so the same Poisson arrival stream is generated for each.
+Each evaluation command writes raw per-run results (`runs.jsonl`), an
+aggregate table (`summary.csv`, `summary.md`), and a chart suite
+(`charts/*.png`) under `results/<scenario>-<date>/`.
 
 ## Findings
 

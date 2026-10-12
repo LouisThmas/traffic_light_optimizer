@@ -56,6 +56,8 @@ class LaneState:
     # green-waste accounting
     green_time: float = 0.0
     green_empty_time: float = 0.0
+    # effective signal phase changes (red/yellow -> green transitions)
+    phase_changes: int = 0
     # lifetime counters
     arrived_total: int = 0
 
@@ -73,6 +75,10 @@ class SimulationConfig:
     # Physical storage limit before spillback. Arrival attempts beyond this
     # cap are recorded as blocked demand instead of exceeding the queue.
     lane_capacity: Optional[int] = None
+    # Explicit per-lane Poisson rates (cars/second). When set, these replace
+    # the arrival_rate * turn_split computation; the evaluation harness uses
+    # this to apply scenario approach/lane overrides.
+    lane_rates: Optional[dict] = None
     seed: int = 0
 
 
@@ -89,7 +95,11 @@ class Simulation:
         unknown_closed = self.closed_lanes - {lane.name for lane in LANES}
         if unknown_closed:
             raise ValueError(f"unknown closed lane(s): {sorted(unknown_closed)}")
-        self.arrival_rates = lane_arrival_rates(self.config.arrival_rate, self.config.turn_split, self.closed_lanes)
+        self.arrival_rates = (
+            dict(self.config.lane_rates)
+            if self.config.lane_rates is not None
+            else lane_arrival_rates(self.config.arrival_rate, self.config.turn_split, self.closed_lanes)
+        )
         self.time = 0.0
         self.arrived = 0
         self.blocked_arrivals = 0
@@ -143,6 +153,7 @@ class Simulation:
             lane.signal = GREEN
             lane.green_elapsed = 0.0
             lane.served_credit = 0.0
+            lane.phase_changes += 1
             lane.green_time += dt
             if len(lane.queue) == 0:
                 lane.green_empty_time += dt
@@ -229,6 +240,7 @@ class Simulation:
             },
             "green_time": {name: lane.green_time for name, lane in self.lanes.items()},
             "green_empty_time": {name: lane.green_empty_time for name, lane in self.lanes.items()},
+            "phase_changes": sum(lane.phase_changes for lane in self.lanes.values()),
             "departed": {name: lane.cars_departed for name, lane in self.lanes.items()},
             "total_car_wait": {name: lane.total_car_wait for name, lane in self.lanes.items()},
             "signals": {name: lane.signal for name, lane in self.lanes.items()},

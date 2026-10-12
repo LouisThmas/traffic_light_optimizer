@@ -1,0 +1,80 @@
+name: balanced
+duration_seconds: 3600
+simulation:
+  step_length: 1.0
+  discharge_rate: 0.5
+  min_green: 5.0
+  yellow_duration: 2.0
+  lane_capacity: null
+arrival_rates:
+  default: 0.2
+approach_overrides: {}
+lane_overrides: {}
+closed_lanes: []
+seeds: [0, 1, 2, 3, 4]
+---
+name: rush_hour_north
+duration_seconds: 3600
+simulation:
+  step_length: 1.0
+  discharge_rate: 0.5
+  min_green: 5.0
+  yellow_duration: 2.0
+  lane_capacity: null
+arrival_rates:
+  default: 0.2
+approach_overrides:
+  north: 0.6
+lane_overrides: {}
+closed_lanes: []
+seeds: [0, 1, 2, 3, 4]
+---
+name: heavy_left_turns
+duration_seconds: 3600
+simulation:
+  step_length: 1.0
+  discharge_rate: 0.5
+  min_green: 5.0
+  yellow_duration: 2.0
+  lane_capacity: null
+arrival_rates:
+  default: 0.2
+approach_overrides: {}
+lane_overrides:
+  N-L: 0.5
+  S-L: 0.5
+  E-L: 0.5
+  W-L: 0.5
+closed_lanes: []
+seeds: [0, 1, 2, 3, 4]
+---
+name: construction_north
+duration_seconds: 3600
+simulation:
+  step_length: 1.0
+  discharge_rate: 0.5
+  min_green: 5.0
+  yellow_duration: 2.0
+  lane_capacity: null
+arrival_rates:
+  default: 0.2
+approach_overrides:
+  north: 0.6
+lane_overrides: {}
+closed_lanes: [N-L, N-F1, N-F2]
+seeds: [0, 1, 2, 3, 4]
+---
+name: near_capacity
+duration_seconds: 3600
+simulation:
+  step_length: 1.0
+  discharge_rate: 0.5
+  min_green: 5.0
+  yellow_duration: 2.0
+  lane_capacity: 40
+arrival_rates:
+  default: 0.35
+approach_overrides: {}
+lane_overrides: {}
+closed_lanes: []
+seeds: [0, 1, 2, 3, 4]
