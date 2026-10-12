@@ -2,6 +2,7 @@
 
 Run:  python3 scripts/generate_config.py
 """
+
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,10 +22,18 @@ MOVEMENT_CODES = {"left": "L", "forward": "F", "right": "R"}
 # approach is heading south. In the driver's frame, heading south:
 # forward = south, left = east, right = west.
 EXIT_DIRECTIONS = {
-    ("north", "left"): "east", ("north", "forward"): "south", ("north", "right"): "west",
-    ("south", "left"): "west", ("south", "forward"): "north", ("south", "right"): "east",
-    ("east", "left"): "south", ("east", "forward"): "west", ("east", "right"): "north",
-    ("west", "left"): "north", ("west", "forward"): "east", ("west", "right"): "south",
+    ("north", "left"): "east",
+    ("north", "forward"): "south",
+    ("north", "right"): "west",
+    ("south", "left"): "west",
+    ("south", "forward"): "north",
+    ("south", "right"): "east",
+    ("east", "left"): "south",
+    ("east", "forward"): "west",
+    ("east", "right"): "north",
+    ("west", "left"): "north",
+    ("west", "forward"): "east",
+    ("west", "right"): "south",
 }
 
 
@@ -45,10 +54,7 @@ class Lane:
     @property
     def name(self) -> str:
         number_suffix = str(self.lane_number) if self.movement == "forward" else ""
-        return (
-            f"{DIRECTION_CODES[self.direction]}-"
-            f"{MOVEMENT_CODES[self.movement]}{number_suffix}"
-        )
+        return f"{DIRECTION_CODES[self.direction]}-{MOVEMENT_CODES[self.movement]}{number_suffix}"
 
     @property
     def exit_direction(self) -> str:
@@ -115,11 +121,7 @@ def _conflicts(first_lane: Lane, second_lane: Lane) -> bool:
     # A left turn's sweep crosses the through lanes of the road it turns
     # into: conflict with the perpendicular approach's forward traffic.
     for turning, other in ((first_lane, second_lane), (second_lane, first_lane)):
-        if (
-            turning.movement == "left"
-            and other.movement == "forward"
-            and other.direction == turning.exit_direction
-        ):
+        if turning.movement == "left" and other.movement == "forward" and other.direction == turning.exit_direction:
             return True
     return False
 

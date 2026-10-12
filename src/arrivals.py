@@ -6,12 +6,12 @@ deciding how many cars arrive at each lane: a lane's effective rate is the
 approach's base rate times its movement share, with forward split evenly
 between the two forward lanes.
 """
+
 from dataclasses import dataclass
-from typing import Dict
 
 import numpy as np
 
-from generate_config import LANES, Lane
+from generate_config import LANES
 
 MOVEMENTS = ("left", "forward", "right")
 
@@ -32,18 +32,27 @@ class TurnSplit:
         return shares[movement]
 
 
-def lane_arrival_rates(base_rate: float, split: TurnSplit) -> Dict[str, float]:
-    """Effective Poisson rate (cars/second) for each lane name."""
-    return {
-        lane.name: base_rate * split.share(lane.movement) for lane in LANES
-    }
+def lane_arrival_rates(base_rate: float, split: TurnSplit, closed_lanes=frozenset()) -> dict[str, float]:
+    """Effective Poisson rate for every open lane, redirecting closed traffic.
+
+    Closing a lane does not delete demand. Its arrival rate is redirected to
+    an open lane on the same approach, preferring a forward lane, then any
+    other open lane. This makes construction scenarios conserve all demand.
+    """
+    rates = {lane.name: base_rate * split.share(lane.movement) for lane in LANES}
+    for closed_lane in closed_lanes:
+        redirected_rate = rates[closed_lane]
+        rates[closed_lane] = 0.0
+        direction = closed_lane[0]
+        open_same_approach = [
+            lane.name for lane in LANES if lane.name not in closed_lanes and lane.direction[0].upper() == direction
+        ]
+        forward_lanes = [name for name in open_same_approach if "-F" in name]
+        recipient = (forward_lanes or open_same_approach)[0]
+        rates[recipient] += redirected_rate
+    return rates
 
 
-def draw_arrivals(
-    rates: Dict[str, float], step_length: float, rng: np.random.Generator
-) -> Dict[str, int]:
+def draw_arrivals(rates: dict[str, float], step_length: float, rng: np.random.Generator) -> dict[str, int]:
     """Draw the number of arriving cars per lane for one step."""
-    return {
-        lane_name: int(rng.poisson(lam * step_length))
-        for lane_name, lam in rates.items()
-    }
+    return {lane_name: int(rng.poisson(lam * step_length)) for lane_name, lam in rates.items()}

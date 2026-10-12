@@ -3,14 +3,13 @@
 Run ``python src/pygame_ui.py`` for one intersection or add ``--compare``
 for two lock-step simulations with identical arrival streams.
 """
+
 from __future__ import annotations
 
 import argparse
-import math
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Dict, Iterable
 
 import pygame
 
@@ -20,7 +19,7 @@ for _path in (_HERE, os.path.join(_ROOT, "scripts")):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
-from controllers import AlternatingController, ManualController, RandomController, all_red
+from controllers import AlternatingController, ManualController, RandomController
 from generate_config import LANES
 from simulator import GREEN, RED, YELLOW, Simulation, SimulationConfig
 
@@ -42,7 +41,7 @@ DIRECTIONS = ("north", "south", "east", "west")
 SPEEDS = (0.5, 1.0, 2.0, 4.0)
 
 
-def metric_values(state: Dict) -> Dict[str, float | int]:
+def metric_values(state: dict) -> dict[str, float | int]:
     """Aggregate display metrics from the public simulation state."""
     departed = sum(state["departed"].values())
     total_wait = sum(state["total_car_wait"].values())
@@ -76,11 +75,7 @@ def direction_vector(direction: str) -> pygame.Vector2:
 
 def turn_direction(direction: str, movement: str) -> str:
     """Return the authoritative exit direction for a visual movement."""
-    return next(
-        lane.exit_direction
-        for lane in LANES
-        if lane.direction == direction and lane.movement == movement
-    )
+    return next(lane.exit_direction for lane in LANES if lane.direction == direction and lane.movement == movement)
 
 
 @dataclass
@@ -98,9 +93,7 @@ class Vehicle:
         segment_count = len(self.points) - 1
         scaled = min(self.progress, 1.0) * segment_count
         segment = min(int(scaled), segment_count - 1)
-        return self.points[segment].lerp(
-            self.points[segment + 1], scaled - segment
-        )
+        return self.points[segment].lerp(self.points[segment + 1], scaled - segment)
 
 
 @dataclass
@@ -110,10 +103,10 @@ class SimulationPanel:
     controller_name: str = "manual"
     sim: Simulation = field(init=False)
     controller: object = field(init=False)
-    signal_rects: Dict[str, pygame.Rect] = field(default_factory=dict)
-    selector_rects: Dict[str, pygame.Rect] = field(default_factory=dict)
+    signal_rects: dict[str, pygame.Rect] = field(default_factory=dict)
+    selector_rects: dict[str, pygame.Rect] = field(default_factory=dict)
     vehicles: list[Vehicle] = field(default_factory=list)
-    previous_departed: Dict[str, int] = field(default_factory=dict)
+    previous_departed: dict[str, int] = field(default_factory=dict)
     feedback: str = ""
     intersection_rect: pygame.Rect | None = None
 
@@ -229,14 +222,14 @@ class SimulationPanel:
             t = index / segments
             inverse = 1 - t
             points.append(
-                inverse ** 3 * start
-                + 3 * inverse ** 2 * t * first_control
-                + 3 * inverse * t ** 2 * second_control
-                + t ** 3 * end
+                inverse**3 * start
+                + 3 * inverse**2 * t * first_control
+                + 3 * inverse * t**2 * second_control
+                + t**3 * end
             )
         return points
 
-    def can_activate(self, lane_name: str, state: Dict) -> bool:
+    def can_activate(self, lane_name: str, state: dict) -> bool:
         if self.controller_name != "manual":
             return False
         controller = self.controller
@@ -278,13 +271,15 @@ class TrafficApplication:
         self.speed_index = 1
         self.accumulator = 0.0
         self.seed = 0
-        self.control_rects: Dict[str, pygame.Rect] = {}
+        self.control_rects: dict[str, pygame.Rect] = {}
         panel_width = 715 if compare else 940
         panel_height = 760
         left = 20
         self.panels = [SimulationPanel(pygame.Rect(left, 72, panel_width, panel_height), self.seed)]
         if compare:
-            self.panels.append(SimulationPanel(pygame.Rect(left + panel_width + 25, 72, panel_width, panel_height), self.seed))
+            self.panels.append(
+                SimulationPanel(pygame.Rect(left + panel_width + 25, 72, panel_width, panel_height), self.seed)
+            )
 
     def reset(self) -> None:
         for panel in self.panels:
@@ -339,7 +334,9 @@ class TrafficApplication:
             if panel.rect.collidepoint(position) and panel.click(position):
                 return
 
-    def text(self, content: str, pos: tuple[float, float], color: tuple[int, int, int] = TEXT, *, small: bool = False) -> None:
+    def text(
+        self, content: str, pos: tuple[float, float], color: tuple[int, int, int] = TEXT, *, small: bool = False
+    ) -> None:
         rendered = (self.small_font if small else self.font).render(content, True, color)
         self.screen.blit(rendered, pos)
 
@@ -375,11 +372,15 @@ class TrafficApplication:
         if self.compare:
             self.text("Space: play/pause   →: step   R: reset", (805, 29), MUTED, small=True)
 
-    def draw_panel(self, panel: SimulationPanel, state: Dict, other: Dict | None) -> None:
+    def draw_panel(self, panel: SimulationPanel, state: dict, other: dict | None) -> None:
         pygame.draw.rect(self.screen, PANEL, panel.rect, border_radius=10)
         self.draw_controller_selector(panel)
-        intersection = pygame.Rect(panel.rect.x + 12, panel.rect.y + 48, int(panel.rect.width * 0.69), panel.rect.height - 60)
-        stats = pygame.Rect(intersection.right + 8, intersection.y, panel.rect.right - intersection.right - 20, intersection.height)
+        intersection = pygame.Rect(
+            panel.rect.x + 12, panel.rect.y + 48, int(panel.rect.width * 0.69), panel.rect.height - 60
+        )
+        stats = pygame.Rect(
+            intersection.right + 8, intersection.y, panel.rect.right - intersection.right - 20, intersection.height
+        )
         self.draw_intersection(panel, intersection, state)
         self.draw_stats(stats, panel, state, other)
 
@@ -393,7 +394,7 @@ class TrafficApplication:
         if panel.feedback:
             self.text(panel.feedback, (panel.rect.x + 380, panel.rect.y + 16), YELLOW_COLOR, small=True)
 
-    def draw_intersection(self, panel: SimulationPanel, rect: pygame.Rect, state: Dict) -> None:
+    def draw_intersection(self, panel: SimulationPanel, rect: pygame.Rect, state: dict) -> None:
         panel.intersection_rect = rect
         center = pygame.Vector2(rect.centerx, rect.centery)
         size = min(rect.width, rect.height) * 0.86
@@ -412,16 +413,40 @@ class TrafficApplication:
         median_color = (61, 76, 65)
         junction_half = road_width / 2
         median_rects = (
-            pygame.Rect(round(center.x - median_width / 2), vertical.top, round(median_width), round(center.y - junction_half - vertical.top)),
-            pygame.Rect(round(center.x - median_width / 2), round(center.y + junction_half), round(median_width), round(vertical.bottom - (center.y + junction_half))),
-            pygame.Rect(horizontal.left, round(center.y - median_width / 2), round(center.x - junction_half - horizontal.left), round(median_width)),
-            pygame.Rect(round(center.x + junction_half), round(center.y - median_width / 2), round(horizontal.right - (center.x + junction_half)), round(median_width)),
+            pygame.Rect(
+                round(center.x - median_width / 2),
+                vertical.top,
+                round(median_width),
+                round(center.y - junction_half - vertical.top),
+            ),
+            pygame.Rect(
+                round(center.x - median_width / 2),
+                round(center.y + junction_half),
+                round(median_width),
+                round(vertical.bottom - (center.y + junction_half)),
+            ),
+            pygame.Rect(
+                horizontal.left,
+                round(center.y - median_width / 2),
+                round(center.x - junction_half - horizontal.left),
+                round(median_width),
+            ),
+            pygame.Rect(
+                round(center.x + junction_half),
+                round(center.y - median_width / 2),
+                round(horizontal.right - (center.x + junction_half)),
+                round(median_width),
+            ),
         )
         for median in median_rects:
             pygame.draw.rect(self.screen, median_color, median)
             pygame.draw.rect(self.screen, (105, 125, 105), median, 1)
             for offset in range(18, median.height if median.height > median.width else median.width, 46):
-                plant = (median.centerx, median.top + offset) if median.height > median.width else (median.left + offset, median.centery)
+                plant = (
+                    (median.centerx, median.top + offset)
+                    if median.height > median.width
+                    else (median.left + offset, median.centery)
+                )
                 pygame.draw.circle(self.screen, (81, 112, 77), plant, 4)
 
         # Dividers are drawn in each carriageway separately, keeping opposing
@@ -463,7 +488,12 @@ class TrafficApplication:
                 pygame.draw.circle(self.screen, WHITE, (round(dot.x), round(dot.y)), 3)
 
         # Exit-direction totals use the authoritative simulator result.
-        exits = {"north": (center.x - 22, rect.top + 8), "south": (center.x - 22, rect.bottom - 22), "east": (rect.right - 54, center.y - 8), "west": (rect.left + 8, center.y - 8)}
+        exits = {
+            "north": (center.x - 22, rect.top + 8),
+            "south": (center.x - 22, rect.bottom - 22),
+            "east": (rect.right - 54, center.y - 8),
+            "west": (rect.left + 8, center.y - 8),
+        }
         for direction, position in exits.items():
             self.text(f"{direction[:1].upper()}: {state['throughput'].get(direction, 0)}", position, MUTED, small=True)
         for vehicle in panel.vehicles:
@@ -502,9 +532,11 @@ class TrafficApplication:
 
     def draw_arrow_head(self, end: pygame.Vector2, direction: pygame.Vector2, color: tuple[int, int, int]) -> None:
         perpendicular = pygame.Vector2(-direction.y, direction.x)
-        pygame.draw.polygon(self.screen, color, [end, end - direction * 6 + perpendicular * 4, end - direction * 6 - perpendicular * 4])
+        pygame.draw.polygon(
+            self.screen, color, [end, end - direction * 6 + perpendicular * 4, end - direction * 6 - perpendicular * 4]
+        )
 
-    def draw_stats(self, rect: pygame.Rect, panel: SimulationPanel, state: Dict, other: Dict | None) -> None:
+    def draw_stats(self, rect: pygame.Rect, panel: SimulationPanel, state: dict, other: dict | None) -> None:
         self.text("Statistics", (rect.x, rect.y), TEXT)
         self.text(f"Time  {state['time']:.0f}s", (rect.x, rect.y + 27), MUTED, small=True)
         metrics = metric_values(state)
@@ -522,7 +554,9 @@ class TrafficApplication:
             self.text(label, (rect.x, y), MUTED, small=True)
             self.text(fmt.format(metrics[key]), (rect.x, y + 17), TEXT, small=True)
             if other_metrics is not None:
-                self.text(percentage_delta(metrics[key], other_metrics[key]), (rect.right - 42, y + 17), MUTED, small=True)
+                self.text(
+                    percentage_delta(metrics[key], other_metrics[key]), (rect.right - 42, y + 17), MUTED, small=True
+                )
 
 
 def parse_args() -> argparse.Namespace:

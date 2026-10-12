@@ -2,6 +2,7 @@
 
 Run:  python3 -m pytest tests/ -v
 """
+
 import sys
 from pathlib import Path
 
@@ -13,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from arrivals import TurnSplit, lane_arrival_rates
 from generate_config import LANES, MATRIX
 from lights import LANE_INDEX
-from simulator import RED, GREEN, YELLOW, Simulation, SimulationConfig
+from simulator import GREEN, RED, YELLOW, Simulation, SimulationConfig
 
 
 def all_lights() -> dict:
@@ -47,9 +48,7 @@ def test_car_conservation():
         # repair to a safe set: drop lanes that conflict with an earlier green
         green = []
         for lane in LANES:
-            if lights[lane.name] and all(
-                MATRIX[LANE_INDEX[lane.name]][LANE_INDEX[other]] for other in green
-            ):
+            if lights[lane.name] and all(MATRIX[LANE_INDEX[lane.name]][LANE_INDEX[other]] for other in green):
                 green.append(lane.name)
         lights = {lane.name: lane.name in green for lane in LANES}
         sim.step(lights)
@@ -69,11 +68,9 @@ def test_poisson_arrival_statistics():
     rates = lane_arrival_rates(base_rate, TurnSplit())
     for lane_name, expected_rate in rates.items():
         expected = expected_rate * horizon
-        std = expected ** 0.5  # Poisson std
+        std = expected**0.5  # Poisson std
         actual = sim.lanes[lane_name].arrived_total
-        assert abs(actual - expected) < 4 * std, (
-            f"{lane_name}: {actual} vs expected {expected:.1f} (std {std:.1f})"
-        )
+        assert abs(actual - expected) < 4 * std, f"{lane_name}: {actual} vs expected {expected:.1f} (std {std:.1f})"
 
 
 def test_turn_split_statistics():
@@ -180,8 +177,8 @@ def test_throughput_counts_all_movements():
         sim.step(lights)
     state = sim.state()
     assert state["total_throughput"] == 4
-    assert state["throughput"]["east"] == 2   # N-L exits east
-    assert state["throughput"]["west"] == 2   # N-R exits west
+    assert state["throughput"]["east"] == 2  # N-L exits east
+    assert state["throughput"]["west"] == 2  # N-R exits west
 
 
 def test_forced_green_blocks_conflicting_new_green():
@@ -252,9 +249,7 @@ def test_safety_invariant_random_controller():
         lights = all_lights()
         green = []
         for lane in LANES:
-            if rng.random() < 0.3 and all(
-                MATRIX[LANE_INDEX[lane.name]][LANE_INDEX[other]] for other in green
-            ):
+            if rng.random() < 0.3 and all(MATRIX[LANE_INDEX[lane.name]][LANE_INDEX[other]] for other in green):
                 green.append(lane.name)
         lights = {lane.name: lane.name in green for lane in LANES}
         sim.step(lights)  # raises if the simulator ever sees an unsafe state

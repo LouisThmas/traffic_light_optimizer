@@ -1,4 +1,5 @@
 """Display-independent checks for pygame UI state and metric helpers."""
+
 import os
 import sys
 from pathlib import Path

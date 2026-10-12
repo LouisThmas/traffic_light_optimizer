@@ -8,4 +8,6 @@ simulation:
     right: 0.2
   min_green: 5.0          # seconds a lane stays green once switched on
   yellow_duration: 2.0    # seconds of yellow after green ends
+  lane_capacity: null     # unlimited by default; set integer for spillback tests
+  closed_lanes: []        # construction closures; demand redirects on approach
   seed: 0

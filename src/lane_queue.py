@@ -1,6 +1,7 @@
 """Lane queue: FIFO cars with arrival timestamps for per-car wait tracking."""
+
 from collections import deque
-from typing import Optional, Tuple
+from typing import Optional
 
 
 class LaneQueue:
@@ -17,7 +18,7 @@ class LaneQueue:
         for _ in range(count):
             self._cars.append(arrival_time)
 
-    def pop(self) -> Optional[Tuple[float, float]]:
+    def pop(self) -> Optional[tuple[float, float]]:
         """Remove the front car; return (arrival_time, wait) or None if empty."""
         if not self._cars:
             return None

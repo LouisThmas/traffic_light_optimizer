@@ -1,4 +1,5 @@
 """Geometry checks for right-hand-traffic pygame lane placement."""
+
 import os
 import sys
 from pathlib import Path

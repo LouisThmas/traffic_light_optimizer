@@ -9,6 +9,8 @@ signalized intersection, compared against classic controllers.
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+
+# Ruff is installed with the project dependencies
 ```
 
 ## Useful commands
@@ -16,6 +18,15 @@ pip install -r requirements.txt
 ```bash
 # run all tests
 python -m pytest tests/ -v
+
+# lint (checks errors, imports, and modern Python syntax)
+ruff check .
+
+# format every Python file
+ruff format .
+
+# lint and apply safe automatic fixes, then format
+ruff check . --fix && ruff format .
 
 # regenerate the intersection config (lanes, movements, compatibility matrix)
 python scripts/generate_config.py
@@ -28,6 +39,12 @@ python src/pygame_ui.py
 
 # launch two lock-step simulations for controller comparison
 python src/pygame_ui.py --compare
+
+# run only the exhaustive baseline-controller tests
+python -m pytest tests/test_controllers.py -v
+
+# inspect the saved matrix-optimized four-phase cycle
+python -m pytest tests/test_controllers.py -v
 ```
 
 ## Pygame simulator
@@ -36,11 +53,13 @@ The interactive view renders the 16 lane signals, movement arrows, queue
 counts, queue dots, and visual-only animated dots for recorded departures.
 The animation does not affect the traffic simulation.
 
-Select **Manual**, **Random**, or **Alternating** above an intersection. In
-Manual mode, click a signal to request it on or off. Signals held by the
-five-second minimum green are muted and cannot be switched off; conflicting
-red signals are disabled. A valid off request changes green to yellow before
-the signal becomes red.
+Select **Manual**, **Random**, **Fixed Cycle**, **Actuated**, or **Max
+Pressure** above an intersection. In Manual mode, click a signal to request
+it on or off. Signals held by the five-second minimum green are muted and
+cannot be switched off; conflicting red signals are disabled. A valid off
+request changes green to yellow before the signal becomes red. See
+[baseline-controller details](docs/BASELINE_CONTROLLERS.md) for the exact
+fixed-cycle order and controller policies.
 
 Use the global buttons (or `Space`, Right Arrow, and `R`) to play/pause,
 advance one simulation tick, change speed, and reset with the original seed.
