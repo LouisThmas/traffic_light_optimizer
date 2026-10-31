@@ -1,0 +1,5 @@
+name: fixed-cycle-balanced
+controller: fixed_cycle
+scenario: balanced
+controller_settings:
+  phase_length: 15

@@ -51,6 +51,15 @@ python -m src.evaluate --controllers all --scenario balanced --weights avg_car_w
 
 # write raw results to a specific JSONL file
 python -m src.evaluate --controllers all --scenario near_capacity --output results/near_capacity.jsonl
+
+# run a single experiment from a YAML config (baseline controllers only)
+python -m src.experiment --config config/experiments/fixed-cycle-balanced.yaml
+
+# run to a specific output directory
+python -m src.experiment --config config/experiments/fixed-cycle-balanced.yaml --output results/my-experiment
+
+# view TensorBoard logs (after running an experiment)
+tensorboard --logdir results/<experiment>/tensorboard
 ```
 
 ## Pygame simulator
