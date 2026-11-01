@@ -10,7 +10,7 @@ from typing import Optional
 
 import numpy as np
 
-from generate_config import LANES
+from generate_config import LANES, MATRIX
 
 # The exact four-vector, safe matrix cover. Every lane appears at least once.
 # It replaces the earlier six-phase hand-written cycle because fewer phase
@@ -52,7 +52,6 @@ class ManualController:
 
     def _is_allowed(self, lane_name: str, state: Optional[dict] = None) -> bool:
         """True if turning this lane green conflicts with nothing already green."""
-        from generate_config import MATRIX
         from lights import LANE_INDEX
 
         actual_green = set()
@@ -140,7 +139,6 @@ class RandomController:
         self.green_probability = green_probability
 
     def act(self, state: dict) -> dict[str, bool]:
-        from generate_config import MATRIX
         from lights import LANE_INDEX, validate_lights
 
         green = []
@@ -183,16 +181,72 @@ class ActuatedController:
         return lights_for_phase(FIXED_CYCLE_PHASES[self.phase_index])
 
 
-class MaxPressureController:
-    """Choose the busiest four-phase configuration with overflow protection.
+# ---------------------------------------------------------------------------
+# Canonical maximal-configuration table (17 configs from the compatibility matrix)
+# ---------------------------------------------------------------------------
 
-    Normal pressure is the sum of queued cars in each phase. The controller
-    changes phase only when the best phase is at least ``switch_ratio``
-    (default 40%) above the current one, avoiding flicker.
+
+def _build_maximal_safety_configs() -> list[dict[str, bool]]:
+    """Enumerate all maximal safe configurations from the compatibility matrix.
+
+    A configuration is maximal when no additional lane can be safely added.
+    Returns a sorted list (by 16-lane bit vector) of configurations, each a
+    dict mapping lane name to bool.  Exactly 17 configurations are returned.
+    """
+    all_lane_names = [lane.name for lane in LANES]
+    n = len(all_lane_names)  # 16
+
+    # Enumerate all 2^16 subsets; keep only maximal cliques in the
+    # compatibility graph. With 16 lanes this is tractable (65536 subsets).
+    maximal_configs: list[set] = []
+
+    for mask in range(1, 1 << n):
+        config_lanes = {i for i in range(n) if mask & (1 << i)}
+        # Check: all pairs in the config must be compatible
+        is_safe = all(MATRIX[i][j] for i in config_lanes for j in config_lanes if i < j)
+        if not is_safe:
+            continue
+        # Check: no outside lane is compatible with all lanes in the config
+        is_maximal = all(
+            any(not MATRIX[outside][inside] for inside in config_lanes)
+            for outside in range(n)
+            if outside not in config_lanes
+        )
+        if is_maximal:
+            maximal_configs.append(set(config_lanes))
+
+    # Convert to light vectors and sort by bit vector for determinism
+    configs: list[dict[str, bool]] = []
+    for config_lanes in maximal_configs:
+        lights = {all_lane_names[i]: (i in config_lanes) for i in range(n)}
+        configs.append(lights)
+
+    def _bit_key(cfg: dict[str, bool]) -> int:
+        key = 0
+        for i, lane in enumerate(all_lane_names):
+            if cfg[lane]:
+                key |= 1 << i
+        return key
+
+    configs.sort(key=_bit_key)
+    return configs
+
+
+# The teacher's action table: 17 maximal safe configurations
+MAX_PRESSURE_CONFIGS: list[dict[str, bool]] = _build_maximal_safety_configs()
+
+
+class MaxPressureController:
+    """Choose the busiest maximal-safe configuration with overflow protection.
+
+    Scores every one of the 17 maximal configurations by total queued cars
+    in the lit lanes. The controller changes configuration only when the
+    best is at least ``switch_ratio`` (default 40%) above the current one,
+    avoiding flicker.
 
     ``overflow_threshold`` adds a per-lane safety valve. If any lane reaches
-    that fraction of ``lane_capacity`` (default 90%), its containing phase
-    wins immediately, even when the total queue on another side is larger.
+    that fraction of ``lane_capacity`` (default 90%), its containing config
+    wins immediately, even when the total queue on another config is larger.
     This models a construction diversion where one remaining lane must be
     drained before its queue spills into upstream traffic.
     """
@@ -212,44 +266,46 @@ class MaxPressureController:
         self.switch_ratio = switch_ratio
         self.lane_capacity = lane_capacity
         self.overflow_threshold = overflow_threshold
-        self.phase_index = 0
+        self.config_index = 0  # current configuration ID (0..16)
 
     @property
     def overflow_queue_limit(self) -> int:
         """Cars at which a single lane gets emergency priority."""
         return int(self.lane_capacity * self.overflow_threshold)
 
-    @staticmethod
-    def phase_pressure(phase: tuple, queues: dict[str, int]) -> int:
-        return sum(queues.get(lane, 0) for lane in phase)
-
     def act(self, state: dict) -> dict[str, bool]:
         queues = state.get("queues", {})
         overflow_lanes = {lane for lane, queue in queues.items() if queue >= self.overflow_queue_limit}
+
         if overflow_lanes:
-            # Pick the phase with the greatest urgent-lane queue; phase index
-            # gives deterministic tie-breaking when multiple lanes overflow.
+            # Emergency: pick the config with the greatest urgent-lane queue
             candidates = [
-                index for index, phase in enumerate(FIXED_CYCLE_PHASES) if any(lane in phase for lane in overflow_lanes)
+                idx
+                for idx, cfg in enumerate(MAX_PRESSURE_CONFIGS)
+                if any(lane in cfg and cfg[lane] for lane in overflow_lanes)
             ]
-            self.phase_index = max(
+            self.config_index = max(
                 candidates,
-                key=lambda index: (
-                    max(queues.get(lane, 0) for lane in FIXED_CYCLE_PHASES[index] if lane in overflow_lanes),
-                    -index,
+                key=lambda idx: (
+                    max(
+                        (queues.get(lane, 0) for lane, on in MAX_PRESSURE_CONFIGS[idx].items()
+                         if on and lane in overflow_lanes),
+                        default=0,
+                    ),
+                    -idx,
                 ),
             )
-            return lights_for_phase(FIXED_CYCLE_PHASES[self.phase_index])
+            return dict(MAX_PRESSURE_CONFIGS[self.config_index])
 
-        pressures = [self.phase_pressure(phase, queues) for phase in FIXED_CYCLE_PHASES]
-        best_index = max(range(len(pressures)), key=lambda index: pressures[index])
-        current_pressure = pressures[self.phase_index]
+        pressures = [sum(queues.get(lane, 0) for lane, on in cfg.items() if on) for cfg in MAX_PRESSURE_CONFIGS]
+        best_index = max(range(len(pressures)), key=lambda idx: pressures[idx])
+        current_pressure = pressures[self.config_index]
         best_pressure = pressures[best_index]
-        if best_index != self.phase_index and (
+        if best_index != self.config_index and (
             current_pressure == 0 or best_pressure >= current_pressure * self.switch_ratio
         ):
-            self.phase_index = best_index
-        return lights_for_phase(FIXED_CYCLE_PHASES[self.phase_index])
+            self.config_index = best_index
+        return dict(MAX_PRESSURE_CONFIGS[self.config_index])
 
 
 CONTROLLERS = {
